@@ -3,6 +3,8 @@ import { Club, League } from '../models/Club';
 import { MatchResult } from '../models/Match';
 import { MatchEngine } from './MatchEngine';
 import { TrainingEngine, TrainingSession } from './TrainingEngine';
+import { TransferEngine } from './TransferEngine';
+import { TransferOffer } from '../models/Transfer';
 
 export interface GameState {
   currentDate: Date;
@@ -11,6 +13,8 @@ export interface GameState {
   clubs: Record<string, Club>;
   leagues: Record<string, League>;
   matchHistory: MatchResult[];
+  activeOffers: TransferOffer[];
+  clubInterest: Record<string, Record<string, number>>; // clubId -> playerId -> interestLevel
 }
 
 export class GameEngine {
@@ -23,7 +27,9 @@ export class GameEngine {
       players: {},
       clubs: {},
       leagues: {},
-      matchHistory: []
+      matchHistory: [],
+      activeOffers: [],
+      clubInterest: {}
     };
   }
 
@@ -49,38 +55,73 @@ export class GameEngine {
     nextDate.setDate(nextDate.getDate() + 7);
     this.state.currentDate = nextDate;
     
-    // Process passive growth for everyone
+    // Process passive growth & market value updates
     Object.values(this.state.players).forEach(player => {
       TrainingEngine.processPassiveGrowth(player);
-    });
-  }
-
-  public trainUser(session: TrainingSession) {
-    const user = this.getUserPlayer();
-    if (user) {
-      return TrainingEngine.train(user, session);
-    }
-    return { message: "No user player found.", growth: {} };
-  }
-
-  public runMatch(homeClubId: string, awayClubId: string): MatchResult {
-    // Before match, reduce condition based on fatigue
-    Object.values(this.state.players).forEach(p => {
-      if (p.clubId === homeClubId || p.clubId === awayClubId) {
-        // High fatigue reduces condition for the match
-        if (p.fatigue > 50) {
-          p.condition -= (p.fatigue - 50) / 2;
-        }
+      player.marketValue = TransferEngine.calculateMarketValue(player);
+      
+      // Randomly update scouting interest for user
+      if (player.isUser) {
+        this.updateScoutingInterest(player);
       }
     });
 
-    const result = MatchEngine.simulate(
-      homeClubId, 
-      awayClubId, 
-      this.state.players, 
-      this.state.userPlayerId
-    );
+    this.checkOffers();
+  }
+
+  private updateScoutingInterest(player: Player) {
+    Object.values(this.state.clubs).forEach(club => {
+      if (club.id === player.clubId) return;
+      
+      if (!this.state.clubInterest[club.id]) this.state.clubInterest[club.id] = {};
+      
+      const current = this.state.clubInterest[club.id][player.id] || 0;
+      this.state.clubInterest[club.id][player.id] = TransferEngine.updateInterest(player, club, current);
+    });
+  }
+
+  private checkOffers() {
+    const user = this.getUserPlayer();
+    if (!user) return;
+
+    Object.entries(this.state.clubInterest).forEach(([clubId, interests]) => {
+      const interest = interests[user.id] || 0;
+      // If interest is high enough, chance of an offer
+      if (interest > 70 && Math.random() > 0.5) {
+        const alreadyHasOffer = this.state.activeOffers.some(o => o.fromClubId === clubId && o.playerId === user.id);
+        if (!alreadyHasOffer) {
+          const offer = TransferEngine.generateOffer(user, this.state.clubs[clubId], interest < 85);
+          this.state.activeOffers.push(offer);
+        }
+      }
+    });
+  }
+
+  public acceptOffer(offerId: string) {
+    const offer = this.state.activeOffers.find(o => o.id === offerId);
+    if (!offer) return false;
+
+    const player = this.state.players[offer.playerId];
+    player.clubId = offer.fromClubId;
+    player.wage = offer.terms.wage;
+    player.contractYearsRemaining = offer.terms.length;
     
+    this.state.activeOffers = this.state.activeOffers.filter(o => o.id !== offerId);
+    return true;
+  }
+
+  public runMatch(homeClubId: string, awayClubId: string): MatchResult {
+    const result = MatchEngine.simulate(homeClubId, awayClubId, this.state.players, this.state.userPlayerId);
+    
+    // Update player form stats
+    Object.entries(result.playerStats).forEach(([pid, stats]) => {
+      const p = this.state.players[pid];
+      if (p) {
+        p.avgRating = ((p.avgRating * p.matchCount) + stats.rating) / (p.matchCount + 1);
+        p.matchCount++;
+      }
+    });
+
     this.state.matchHistory.push(result);
     return result;
   }
