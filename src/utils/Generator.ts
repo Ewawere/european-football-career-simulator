@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Player, Position, Attributes } from '../models/Player';
+import { Player, Position, Attributes, DevelopmentPlan } from '../models/Player';
 import { generateAppearance } from '../models/Appearance';
 
 const FIRST_NAMES = ['Lamine', 'Jude', 'Kylian', 'Bukayo', 'Erling', 'Phil', 'Marcus', 'Gavi', 'Pedri', 'Jamal'];
@@ -17,22 +17,10 @@ export class Generator {
   static generateAttributes(base: number, variance: number): Attributes {
     const gen = () => Math.min(99, Math.max(1, Math.floor(base + (Math.random() * variance * 2 - variance))));
     return {
-      finishing: gen(),
-      passing: gen(),
-      dribbling: gen(),
-      ballControl: gen(),
-      crossing: gen(),
-      tackling: gen(),
-      marking: gen(),
-      pace: gen(),
-      acceleration: gen(),
-      strength: gen(),
-      stamina: gen(),
-      agility: gen(),
-      positioning: gen(),
-      vision: gen(),
-      composure: gen(),
-      decisions: gen(),
+      finishing: gen(), passing: gen(), dribbling: gen(), ballControl: gen(),
+      crossing: gen(), tackling: gen(), marking: gen(), pace: gen(),
+      acceleration: gen(), strength: gen(), stamina: gen(), agility: gen(),
+      positioning: gen(), vision: gen(), composure: gen(), decisions: gen(),
       workRate: gen()
     };
   }
@@ -52,12 +40,14 @@ export class Generator {
       appearance: generateAppearance(id),
       attributes: this.generateAttributes(50, 15),
       potential: 70 + Math.floor(Math.random() * 25),
+      developmentPlan: 'Balanced',
       clubId: null,
       isUser: false,
       marketValue: 500000,
       wage: 500,
       reputation: 10,
       condition: 100,
+      fatigue: 0,
       morale: 70,
       ...overrides
     };
