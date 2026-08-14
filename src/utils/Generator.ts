@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Player, Position, Attributes } from '../models/Player';
+import { generateAppearance } from '../models/Appearance';
 
 const FIRST_NAMES = ['Lamine', 'Jude', 'Kylian', 'Bukayo', 'Erling', 'Phil', 'Marcus', 'Gavi', 'Pedri', 'Jamal'];
 const LAST_NAMES = ['Yamal', 'Bellingham', 'Mbappé', 'Saka', 'Haaland', 'Foden', 'Rashford', 'Musiala', 'Wirtz', 'Simons'];
@@ -37,19 +38,18 @@ export class Generator {
   }
 
   static createPlayer(overrides: Partial<Player> = {}): Player {
+    const id = overrides.id || uuidv4();
     const { firstName, lastName } = this.generateRandomName();
-    const position: Position = 'ST';
     
     return {
-      id: uuidv4(),
+      id,
       firstName,
       lastName,
       age: 16,
       nationality: NATIONALITIES[Math.floor(Math.random() * NATIONALITIES.length)],
-      position,
+      position: 'ST',
       preferredFoot: Math.random() > 0.8 ? 'Left' : 'Right',
-      height: 170 + Math.floor(Math.random() * 30),
-      weight: 65 + Math.floor(Math.random() * 25),
+      appearance: generateAppearance(id),
       attributes: this.generateAttributes(50, 15),
       potential: 70 + Math.floor(Math.random() * 25),
       clubId: null,
