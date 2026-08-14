@@ -3,12 +3,14 @@ import { Club, League } from '../models/Club';
 import { MatchResult } from '../models/Match';
 import { LeagueTable, Fixture } from '../models/World';
 import { Tournament } from '../models/Tournament';
+import { SocialPost, Interview, InterviewOption } from '../models/Social';
 import { MatchEngine } from './MatchEngine';
 import { TrainingEngine, TrainingSession } from './TrainingEngine';
 import { TransferEngine } from './TransferEngine';
 import { WorldEngine } from './WorldEngine';
 import { LegacyEngine } from './LegacyEngine';
 import { TournamentEngine } from './TournamentEngine';
+import { SocialEngine, InterviewEngine } from './SocialEngine';
 import { TransferOffer } from '../models/Transfer';
 
 export interface GameState {
@@ -23,6 +25,8 @@ export interface GameState {
   matchHistory: MatchResult[];
   activeOffers: TransferOffer[];
   clubInterest: Record<string, Record<string, number>>;
+  socialFeed: SocialPost[];
+  pendingInterview: Interview | null;
 }
 
 export class GameEngine {
@@ -40,7 +44,9 @@ export class GameEngine {
       fixtures: [],
       matchHistory: [],
       activeOffers: [],
-      clubInterest: {}
+      clubInterest: {},
+      socialFeed: [],
+      pendingInterview: null
     };
   }
 
@@ -71,33 +77,11 @@ export class GameEngine {
     const todaysFixtures = this.state.fixtures.filter(f => !f.isPlayed && f.date.toDateString() === this.state.currentDate.toDateString());
     todaysFixtures.forEach(fixture => this.runMatch(fixture));
 
-    // Check tournaments for round advancement
     Object.values(this.state.tournaments).forEach(t => {
       const nextWeek = new Date(this.state.currentDate);
       nextWeek.setDate(nextWeek.getDate() + 7);
-      
       const advanced = TournamentEngine.checkRoundCompletion(t, this.state.matchHistory, nextWeek);
-      if (advanced && !t.winnerId) {
-        // Add new fixtures to global list
-        const newFixtures = t.rounds[t.currentRoundIndex].fixtures;
-        this.state.fixtures.push(...newFixtures);
-      }
-      
-      if (t.winnerId && this.getUserPlayer()?.clubId === t.winnerId) {
-        // Record Trophy Milestone if not already recorded
-        const user = this.getUserPlayer();
-        if (user && !user.milestones.some(m => m.type === 'Trophy' && m.description.includes(t.name))) {
-          user.milestones.push({
-            id: 'trophy-' + t.id,
-            type: 'Trophy',
-            title: `${t.name} Champions!`,
-            description: `Won the ${t.name} with ${user.clubId}.`,
-            date: new Date(this.state.currentDate),
-            clubId: user.clubId || '',
-            age: user.age
-          });
-        }
-      }
+      if (advanced && !t.winnerId) this.state.fixtures.push(...t.rounds[t.currentRoundIndex].fixtures);
     });
 
     if (this.state.currentDate.getDay() === 1) this.processWeeklyUpdates();
@@ -159,24 +143,14 @@ export class GameEngine {
       const p = this.state.players[pid];
       if (p) {
         if (p.isUser) {
-          const newMilestones = LegacyEngine.checkMatchMilestones(p, stats, result);
-          p.milestones.push(...newMilestones);
+          p.milestones.push(...LegacyEngine.checkMatchMilestones(p, stats, result));
           
-          // Tournament specific milestone check
-          if (this.state.tournaments[fixture.competitionId]) {
-            const tournament = this.state.tournaments[fixture.competitionId];
-            if (!p.milestones.some(m => m.title.includes(tournament.name + " Debut"))) {
-              p.milestones.push({
-                id: 'debut-' + tournament.id,
-                type: 'Debut',
-                title: `${tournament.name} Debut`,
-                description: `Made debut in ${tournament.name} against ${fixture.homeClubId === p.clubId ? fixture.awayClubId : fixture.homeClubId}.`,
-                date: new Date(this.state.currentDate),
-                clubId: p.clubId || '',
-                age: p.age
-              });
-            }
-          }
+          // Social Reactions
+          this.state.socialFeed.push(...SocialEngine.generateFanReactions(p, result));
+          
+          // Trigger Interview
+          const interview = InterviewEngine.generatePostMatchInterview(p, result);
+          if (interview) this.state.pendingInterview = interview;
         }
         p.avgRating = ((p.avgRating * p.matchCount) + stats.rating) / (p.matchCount + 1);
         p.matchCount++;
@@ -193,6 +167,17 @@ export class GameEngine {
     fixture.resultId = result.id;
     this.state.matchHistory.push(result);
     return result;
+  }
+
+  public answerInterview(choiceIndex: number) {
+    const user = this.getUserPlayer();
+    if (user && this.state.pendingInterview) {
+      const choice = this.state.pendingInterview.options[choiceIndex];
+      InterviewEngine.applyInterviewChoice(user, choice);
+      this.state.pendingInterview = null;
+      return true;
+    }
+    return false;
   }
 
   public trainUser(session: TrainingSession) {
