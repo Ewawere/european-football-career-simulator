@@ -1,83 +1,81 @@
 import { GameEngine } from './engine/GameEngine';
 import { Generator } from './utils/Generator';
 
-async function simulateTournamentRun() {
-  console.log("⚽ EUROPEAN FOOTBALL CAREER SIMULATOR: TOURNAMENT EXPANSION");
+async function simulateSocialAndPersonality() {
+  console.log("⚽ EUROPEAN FOOTBALL CAREER SIMULATOR: SOCIAL & PERSONALITY");
   console.log("================================================");
 
   const engine = new GameEngine();
 
-  // 1. Setup World with League and Cup
-  const clubs = ["Arsenal", "Chelsea", "Liverpool", "ManCity", "Spurs", "ManUtd", "Newcastle", "AstonVilla"].map(name => ({
-    id: name, name, shortName: name.substring(0, 3).toUpperCase(),
-    country: "England", leagueId: "PL", reputation: 85, budget: 100000000, 
+  // 1. Setup World
+  const clubs = [{ id: "Arsenal", name: "Arsenal" }, { id: "Chelsea", name: "Chelsea" }].map(c => ({
+    ...c, country: "England", leagueId: "PL", reputation: 80, budget: 100, 
     stadiumCapacity: 50000, trainingFacilities: 20, youthAcademy: 20, 
     firstTeamSquad: [], youthSquad: []
   } as any));
 
   const league = { id: "PL", name: "Premier League", country: "England", tier: 1, teams: [] };
   engine.setupLeague(league, clubs);
-  
-  // Setup FA Cup
-  engine.setupTournament("FACup", "FA Cup", clubs.map(c => c.id));
 
-  // 2. Setup User
+  // 2. Setup User with default personality
   const myPlayer = Generator.createPlayer({
     firstName: "Alex", lastName: "Hunter", nationality: "England", 
-    position: "ST", isUser: true, clubId: "Arsenal", potential: 95
+    position: "RW", isUser: true, clubId: "Arsenal"
   });
   engine.initUserPlayer(myPlayer);
   
-  // Fill clubs with players
-  clubs.forEach(club => {
-    for(let i=0; i<15; i++) engine.addPlayer(Generator.createPlayer({ clubId: club.id }));
-  });
+  // Fill clubs
+  for(let i=0; i<20; i++) engine.addPlayer(Generator.createPlayer({ clubId: i < 10 ? "Arsenal" : "Chelsea" }));
 
   console.log(`👤 Player: ${myPlayer.firstName} ${myPlayer.lastName}`);
-  console.log(`👕 Club: ${myPlayer.clubId}`);
-  console.log("🏆 Competitions: Premier League & FA Cup");
+  console.log(`🎭 Personality: Team Player (${myPlayer.personality.teamPlayer}), Ambition (${myPlayer.personality.ambition})`);
   console.log("================================================\n");
 
-  // 3. Simulate Month of Football
-  console.log("⏳ Simulating Month 1 (League + Cup Rounds)...");
-  for (let i = 0; i < 30; i++) {
+  // 3. Simulate a match that triggers an interview
+  console.log("📅 MATCH DAY: Arsenal vs Chelsea");
+  let interviewFound = false;
+  let safetyBreak = 0;
+
+  while (!interviewFound && safetyBreak < 10) {
     engine.advanceDay();
+    if (engine.getState().pendingInterview) {
+      interviewFound = true;
+    }
+    safetyBreak++;
   }
 
-  // 4. Show Tournament Status
-  const faCup = engine.getState().tournaments["FACup"];
-  console.log(`\n🏆 ${faCup.name} Status`);
+  // 4. Display Social Feed
+  console.log("\n📱 SOCIAL MEDIA FEED");
   console.log("------------------------------------------------");
-  faCup.rounds.forEach((round, idx) => {
-    console.log(`Round: ${round.name} | Completed: ${round.isCompleted}`);
+  const feed = engine.getState().socialFeed;
+  feed.slice(-3).forEach(post => {
+    console.log(`${post.author}: "${post.content}" [❤️ ${post.likes}]`);
   });
-  
-  if (faCup.winnerId) {
-    console.log(`👑 WINNER: ${faCup.winnerId}`);
-  }
 
-  // 5. Display Milestones (Look for Tournament Debuts)
-  console.log("\n📜 RECENT CAREER MILESTONES");
-  console.log("------------------------------------------------");
-  const recentMilestones = myPlayer.milestones.slice(-3);
-  if (recentMilestones.length === 0) {
-    console.log("Keep grinding for that big moment!");
+  // 5. Post-Match Interview
+  const interview = engine.getState().pendingInterview;
+  if (interview) {
+    console.log("\n🎤 POST-MATCH INTERVIEW");
+    console.log("------------------------------------------------");
+    console.log(`Reporter: "${interview.question}"`);
+    
+    // Simulate picking the "Loyal" option (index 2)
+    const choiceIdx = 2;
+    const choice = interview.options[choiceIdx];
+    console.log(`\nSelection: > ${choice.text} (${choice.type})`);
+    
+    engine.answerInterview(choiceIdx);
+
+    console.log("\n📈 CONSEQUENCES:");
+    console.log(`🤝 Manager Trust: ${myPlayer.managerTrust}%`);
+    console.log(`🎭 New Loyalty: ${myPlayer.personality.loyalty}`);
+    console.log(`🎭 New Ego: ${myPlayer.personality.ego}`);
+    console.log(`😊 Morale: ${myPlayer.morale}%`);
   } else {
-    recentMilestones.forEach(m => {
-      console.log(`⭐ [${m.type}] ${m.title}`);
-      console.log(`   "${m.description}"`);
-    });
-  }
-
-  // 6. Fatigue Check (Due to fixture congestion)
-  console.log("\n🩹 PHYSICAL STATUS");
-  console.log(`🔋 Fatigue: ${myPlayer.fatigue.toFixed(0)}%`);
-  console.log(`💪 Condition: ${myPlayer.condition.toFixed(0)}%`);
-  if (myPlayer.fatigue > 50) {
-    console.log("⚠️ Fixture congestion is taking its toll. Rotation may be needed.");
+    console.log("\nNo interview today. The media is focusing elsewhere.");
   }
 
   console.log("\n================================================");
 }
 
-simulateTournamentRun().catch(console.error);
+simulateSocialAndPersonality().catch(console.error);
