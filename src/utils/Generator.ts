@@ -56,6 +56,14 @@ export class Generator {
       totalAssists: 0,
       managerTrust: 50,
       milestones: [],
+      personality: {
+        teamPlayer: 50,
+        confidence: 50,
+        ambition: 50,
+        loyalty: 50,
+        ego: 10,
+        professionalism: 50
+      },
       ...overrides
     };
   }
