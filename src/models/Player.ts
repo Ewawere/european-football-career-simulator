@@ -1,4 +1,5 @@
 import { Appearance } from './Appearance';
+import { CareerMilestone } from './Legacy';
 
 export type DevelopmentPlan = 'Balanced' | 'InsideForward' | 'Playmaker' | 'TargetMan' | 'DefensiveWinger';
 
@@ -41,9 +42,12 @@ export interface Player {
   // Performance tracking
   avgRating: number;
   matchCount: number;
+  totalGoals: number;
+  totalAssists: number;
 
-  // Manager Relationship (User only usually, but stored here)
-  managerTrust: number; // 0-100
+  // Legacy
+  managerTrust: number;
+  milestones: CareerMilestone[];
 }
 
 export function calculateOverall(player: Player): number {
