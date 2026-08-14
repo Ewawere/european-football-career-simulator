@@ -41,6 +41,9 @@ export interface Player {
   // Performance tracking
   avgRating: number;
   matchCount: number;
+
+  // Manager Relationship (User only usually, but stored here)
+  managerTrust: number; // 0-100
 }
 
 export function calculateOverall(player: Player): number {
