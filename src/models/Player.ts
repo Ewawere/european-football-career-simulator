@@ -1,4 +1,6 @@
-import { Appearance, generateAppearance } from './Appearance';
+import { Appearance } from './Appearance';
+
+export type DevelopmentPlan = 'Balanced' | 'InsideForward' | 'Playmaker' | 'TargetMan' | 'DefensiveWinger';
 
 export interface Attributes {
   finishing: number;
@@ -34,6 +36,7 @@ export interface Player {
   appearance: Appearance;
   attributes: Attributes;
   potential: number;
+  developmentPlan: DevelopmentPlan;
   
   clubId: string | null;
   isUser: boolean;
@@ -42,7 +45,8 @@ export interface Player {
   wage: number;
   
   reputation: number;
-  condition: number;
+  condition: number; // Current match fitness (0-100)
+  fatigue: number;   // Accumlated tiredness (0-100)
   morale: number;
 }
 
