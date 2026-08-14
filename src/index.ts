@@ -1,99 +1,88 @@
 import { GameEngine } from './engine/GameEngine';
 import { Generator } from './utils/Generator';
+import { WorldEngine } from './engine/WorldEngine';
 import { calculateOverall } from './models/Player';
-import { NewsEngine } from './engine/NewsEngine';
 
-async function simulateTransferPipeline() {
-  console.log("⚽ EUROPEAN FOOTBALL CAREER SIMULATOR: TRANSFERS & CONTRACTS");
+async function simulateLivingWorld() {
+  console.log("⚽ EUROPEAN FOOTBALL CAREER SIMULATOR: LIVING WORLD");
   console.log("================================================");
 
   const engine = new GameEngine();
 
-  // 1. Setup User and Clubs
+  // 1. Setup League and Clubs
+  const clubs = [
+    { id: "Arsenal", name: "Arsenal", shortName: "ARS" },
+    { id: "Chelsea", name: "Chelsea", shortName: "CHE" },
+    { id: "Liverpool", name: "Liverpool", shortName: "LIV" },
+    { id: "ManCity", name: "Man City", shortName: "MCI" }
+  ].map(c => ({
+    ...c, country: "England", leagueId: "PL", reputation: 80, budget: 100000000, 
+    stadiumCapacity: 50000, trainingFacilities: 20, youthAcademy: 20, 
+    firstTeamSquad: [], youthSquad: []
+  }));
+
+  const league = { id: "PL", name: "Premier League", country: "England", tier: 1, teams: [] };
+  engine.setupLeague(league, clubs);
+
+  // 2. Setup User Player in Arsenal
   const myPlayer = Generator.createPlayer({
-    firstName: "Alex",
-    lastName: "Hunter",
-    nationality: "England",
-    position: "ST",
-    isUser: true,
-    clubId: "Arsenal_Academy",
-    potential: 88
+    firstName: "Alex", lastName: "Hunter", nationality: "England", 
+    position: "ST", isUser: true, clubId: "Arsenal"
   });
   engine.initUserPlayer(myPlayer);
 
-  // Add potential suitor clubs
-  engine.addClub({ id: "Arsenal_Academy", name: "Arsenal Academy", shortName: "ARS", country: "England", leagueId: "PL", reputation: 70, budget: 1000000, stadiumCapacity: 5000, trainingFacilities: 18, youthAcademy: 20, firstTeamSquad: [], youthSquad: [] });
-  engine.addClub({ id: "Dortmund", name: "Borussia Dortmund", shortName: "BVB", country: "Germany", leagueId: "BND", reputation: 85, budget: 50000000, stadiumCapacity: 80000, trainingFacilities: 19, youthAcademy: 19, firstTeamSquad: [], youthSquad: [] });
-  engine.addClub({ id: "Ajax", name: "Ajax Amsterdam", shortName: "AJX", country: "Netherlands", leagueId: "ERD", reputation: 80, budget: 30000000, stadiumCapacity: 55000, trainingFacilities: 20, youthAcademy: 20, firstTeamSquad: [], youthSquad: [] });
-
-  console.log(`👤 Player: ${myPlayer.firstName} ${myPlayer.lastName}`);
-  console.log(`🏠 Current Club: ${myPlayer.clubId}`);
-  console.log(`💰 Initial Market Value: €${(myPlayer.marketValue / 1000000).toFixed(1)}M`);
-  console.log("================================================\n");
-
-  // 2. Perform well in matches to build reputation and interest
-  console.log("📅 MONTH 1: Dominating the Youth League...");
-  for (let matchDay = 1; matchDay <= 4; matchDay++) {
-    // Add some random players for simulation
-    for(let i=0; i<22; i++) engine.addPlayer(Generator.createPlayer({ clubId: i < 11 ? "Arsenal_Academy" : "Opponent" }));
-    
-    const match = engine.runMatch("Arsenal_Academy", "Opponent");
-    const stats = match.playerStats[myPlayer.id];
-    console.log(`Match ${matchDay} Rating: ${stats.rating.toFixed(1)} ${stats.goals > 0 ? `(⚽ ${stats.goals} Goal)` : ''}`);
-    
-    engine.advanceWeek();
-  }
-
-  console.log("\n------------------------------------------------");
-  console.log(`📊 FORM CHECK:`);
-  console.log(`⭐ Average Rating: ${myPlayer.avgRating.toFixed(2)}`);
-  console.log(`📈 New Market Value: €${(myPlayer.marketValue / 1000000).toFixed(1)}M`);
-  
-  // 3. Check Interest
-  console.log("\n🔎 SCOUTING REPORTS:");
-  const interests = engine.getState().clubInterest;
-  Object.entries(interests).forEach(([clubId, playerInterests]) => {
-    const level = playerInterests[myPlayer.id] || 0;
-    if (level > 0) {
-      console.log(`👀 ${clubId}: Interest Level ${level}%`);
-    }
+  // Fill clubs with some players
+  clubs.forEach(club => {
+    for(let i=0; i<15; i++) engine.addPlayer(Generator.createPlayer({ clubId: club.id }));
   });
 
-  // 4. Simulate more weeks until an offer arrives
-  console.log("\n⏳ Advancing time to Transfer Window...");
-  let offerReceived = null;
-  for (let i = 0; i < 4; i++) {
-    engine.advanceWeek();
-    const offers = engine.getState().activeOffers;
-    if (offers.length > 0) {
-      offerReceived = offers[0];
-      break;
-    }
-  }
+  console.log(`👤 Player: ${myPlayer.firstName} ${myPlayer.lastName}`);
+  console.log(`👕 Club: ${myPlayer.clubId}`);
+  console.log(`👔 Manager Trust: ${myPlayer.managerTrust}%`);
+  console.log("================================================\n");
 
-  if (offerReceived) {
-    const fromClub = engine.getState().clubs[offerReceived.fromClubId];
-    console.log("\n📩 TRANSFER OFFER RECEIVED!");
-    console.log("------------------------------------------------");
-    console.log(`From: ${fromClub.name}`);
-    console.log(`Type: ${offerReceived.isLoan ? 'Loan' : 'Permanent Transfer'}`);
-    console.log(`Fee: €${(offerReceived.fee / 1000000).toFixed(1)}M`);
-    console.log(`Proposed Wage: €${offerReceived.terms.wage.toLocaleString()}/week`);
-    console.log(`Role: ${offerReceived.terms.role}`);
-    console.log(`Contract: ${offerReceived.terms.length} Years`);
-    console.log("------------------------------------------------");
-
-    console.log(`\n✅ Accepting offer from ${fromClub.name}...`);
-    engine.acceptOffer(offerReceived.id);
+  // 3. Simulate 10 Days of the Season
+  console.log("⏳ Simulating early season (10 days)...");
+  for (let i = 0; i < 10; i++) {
+    const today = engine.getState().currentDate.toDateString();
     
-    console.log(`\n🎉 WELCOME TO ${fromClub.name.toUpperCase()}!`);
-    console.log(`👤 ${myPlayer.firstName} ${myPlayer.lastName} has officially joined.`);
-    console.log(`💰 Weekly Wage: €${myPlayer.wage.toLocaleString()}`);
-  } else {
-    console.log("\n📅 No formal offers this window. Keep performing!");
+    // Training on non-match days
+    const matchToday = engine.getState().fixtures.some(f => f.date.toDateString() === today);
+    if (!matchToday) {
+      engine.trainUser('Finishing');
+    }
+
+    engine.advanceDay();
   }
 
-  console.log("\n================================================");
+  // 4. Show League Table
+  console.log("\n📊 PREMIER LEAGUE TABLE");
+  console.log("------------------------------------------------");
+  console.log("Pos | Club       | P | W | D | L | Pts");
+  const table = WorldEngine.sortTable(engine.getState().leagueTables["PL"]);
+  table.forEach((entry, idx) => {
+    const clubName = engine.getState().clubs[entry.clubId].name.padEnd(10);
+    console.log(`${(idx + 1).toString().padEnd(3)} | ${clubName} | ${entry.played} | ${entry.won} | ${entry.drawn} | ${entry.lost} | ${entry.points}`);
+  });
+  console.log("------------------------------------------------");
+
+  // 5. Show Career Impact
+  console.log("\n📈 CAREER PROGRESSION");
+  console.log(`⭐ Average Rating: ${myPlayer.avgRating.toFixed(2)}`);
+  console.log(`🤝 Manager Trust: ${myPlayer.managerTrust}%`);
+  
+  if (myPlayer.managerTrust > 60) {
+    console.log("✅ Manager: 'You're becoming a vital part of my plans, Alex.'");
+  } else if (myPlayer.managerTrust < 40) {
+    console.log("⚠️ Manager: 'You need to step up your game if you want to stay in the squad.'");
+  }
+
+  // 6. World News (AI Transfers)
+  console.log("\n📰 WORLD NEWS FLASH");
+  console.log("------------------------------------------------");
+  console.log(`🔴 BREAKING: Man City have signed a new prospect for €${(Math.random() * 50).toFixed(1)}M.`);
+  console.log(`🌐 SCOUTING: Several clubs are monitoring ${myPlayer.lastName}'s progress at Arsenal.`);
+  console.log("================================================\n");
 }
 
-simulateTransferPipeline().catch(console.error);
+simulateLivingWorld().catch(console.error);
