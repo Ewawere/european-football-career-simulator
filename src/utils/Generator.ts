@@ -45,10 +45,13 @@ export class Generator {
       isUser: false,
       marketValue: 500000,
       wage: 500,
+      contractYearsRemaining: 2,
       reputation: 10,
       condition: 100,
       fatigue: 0,
       morale: 70,
+      avgRating: 0,
+      matchCount: 0,
       ...overrides
     };
   }
