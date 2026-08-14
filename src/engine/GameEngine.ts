@@ -2,6 +2,7 @@ import { Player } from '../models/Player';
 import { Club, League } from '../models/Club';
 import { MatchResult } from '../models/Match';
 import { MatchEngine } from './MatchEngine';
+import { TrainingEngine, TrainingSession } from './TrainingEngine';
 
 export interface GameState {
   currentDate: Date;
@@ -47,29 +48,39 @@ export class GameEngine {
     const nextDate = new Date(this.state.currentDate);
     nextDate.setDate(nextDate.getDate() + 7);
     this.state.currentDate = nextDate;
-    this.processWeeklyUpdates();
-  }
-
-  private processWeeklyUpdates() {
+    
+    // Process passive growth for everyone
     Object.values(this.state.players).forEach(player => {
-      if (player.age < 21) {
-        const attrs = player.attributes as any;
-        const keys = Object.keys(attrs);
-        const randomKey = keys[Math.floor(Math.random() * keys.length)];
-        if (attrs[randomKey] < player.potential) {
-          attrs[randomKey] += 0.05; 
-        }
-      }
+      TrainingEngine.processPassiveGrowth(player);
     });
   }
 
+  public trainUser(session: TrainingSession) {
+    const user = this.getUserPlayer();
+    if (user) {
+      return TrainingEngine.train(user, session);
+    }
+    return { message: "No user player found.", growth: {} };
+  }
+
   public runMatch(homeClubId: string, awayClubId: string): MatchResult {
+    // Before match, reduce condition based on fatigue
+    Object.values(this.state.players).forEach(p => {
+      if (p.clubId === homeClubId || p.clubId === awayClubId) {
+        // High fatigue reduces condition for the match
+        if (p.fatigue > 50) {
+          p.condition -= (p.fatigue - 50) / 2;
+        }
+      }
+    });
+
     const result = MatchEngine.simulate(
       homeClubId, 
       awayClubId, 
       this.state.players, 
       this.state.userPlayerId
     );
+    
     this.state.matchHistory.push(result);
     return result;
   }
