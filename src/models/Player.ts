@@ -1,5 +1,6 @@
+import { Appearance, generateAppearance } from './Appearance';
+
 export interface Attributes {
-  // Technical
   finishing: number;
   passing: number;
   dribbling: number;
@@ -7,15 +8,11 @@ export interface Attributes {
   crossing: number;
   tackling: number;
   marking: number;
-
-  // Physical
   pace: number;
   acceleration: number;
   strength: number;
   stamina: number;
   agility: number;
-
-  // Mental
   positioning: number;
   vision: number;
   composure: number;
@@ -33,9 +30,8 @@ export interface Player {
   nationality: string;
   position: Position;
   preferredFoot: 'Left' | 'Right' | 'Both';
-  height: number; // in cm
-  weight: number; // in kg
   
+  appearance: Appearance;
   attributes: Attributes;
   potential: number;
   
@@ -45,15 +41,14 @@ export interface Player {
   marketValue: number;
   wage: number;
   
-  reputation: number; // 0-100
-  condition: number; // 0-100
-  morale: number; // 0-100
+  reputation: number;
+  condition: number;
+  morale: number;
 }
 
 export function calculateOverall(player: Player): number {
   const { attributes, position } = player;
   
-  // Simplified calculation based on position
   if (position === 'ST' || position === 'RW' || position === 'LW') {
     return Math.round(
       (attributes.finishing * 0.4) + 
@@ -81,7 +76,6 @@ export function calculateOverall(player: Player): number {
     );
   }
 
-  // Fallback
   const allAttrs = Object.values(attributes);
   return Math.round(allAttrs.reduce((a, b) => a + b, 0) / allAttrs.length);
 }
