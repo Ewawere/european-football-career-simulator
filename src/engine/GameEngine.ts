@@ -1,5 +1,7 @@
 import { Player } from '../models/Player';
 import { Club, League } from '../models/Club';
+import { MatchResult } from '../models/Match';
+import { MatchEngine } from './MatchEngine';
 
 export interface GameState {
   currentDate: Date;
@@ -7,6 +9,7 @@ export interface GameState {
   players: Record<string, Player>;
   clubs: Record<string, Club>;
   leagues: Record<string, League>;
+  matchHistory: MatchResult[];
 }
 
 export class GameEngine {
@@ -14,17 +17,26 @@ export class GameEngine {
 
   constructor() {
     this.state = {
-      currentDate: new Date(2024, 6, 1), // July 1st, 2024
+      currentDate: new Date(2024, 6, 1),
       userPlayerId: null,
       players: {},
       clubs: {},
-      leagues: {}
+      leagues: {},
+      matchHistory: []
     };
   }
 
   public initUserPlayer(player: Player) {
     this.state.players[player.id] = player;
     this.state.userPlayerId = player.id;
+  }
+
+  public addClub(club: Club) {
+    this.state.clubs[club.id] = club;
+  }
+
+  public addPlayer(player: Player) {
+    this.state.players[player.id] = player;
   }
 
   public getUserPlayer(): Player | null {
@@ -35,45 +47,31 @@ export class GameEngine {
     const nextDate = new Date(this.state.currentDate);
     nextDate.setDate(nextDate.getDate() + 7);
     this.state.currentDate = nextDate;
-    
-    // Logic for weekly updates (training, recovery, etc.)
     this.processWeeklyUpdates();
   }
 
   private processWeeklyUpdates() {
-    // Basic attribute growth for young players
     Object.values(this.state.players).forEach(player => {
       if (player.age < 21) {
-        // Randomly improve an attribute slightly
         const attrs = player.attributes as any;
         const keys = Object.keys(attrs);
         const randomKey = keys[Math.floor(Math.random() * keys.length)];
         if (attrs[randomKey] < player.potential) {
-          attrs[randomKey] += 0.1; // Slow progression
+          attrs[randomKey] += 0.05; 
         }
       }
     });
   }
 
-  public simulateMatch(homeClubId: string, awayClubId: string) {
-    // This would eventually be a complex simulation.
-    // For now, a simple random result.
-    const homeScore = Math.floor(Math.random() * 4);
-    const awayScore = Math.floor(Math.random() * 3);
-    
-    const userPlayer = this.getUserPlayer();
-    let playerRating = 0;
-    
-    if (userPlayer && (userPlayer.clubId === homeClubId || userPlayer.clubId === awayClubId)) {
-      // Simulate user performance
-      playerRating = 5 + (Math.random() * 5); // 5.0 to 10.0
-    }
-
-    return {
-      score: `${homeScore} - ${awayScore}`,
-      playerRating: playerRating.toFixed(1),
-      timestamp: this.state.currentDate
-    };
+  public runMatch(homeClubId: string, awayClubId: string): MatchResult {
+    const result = MatchEngine.simulate(
+      homeClubId, 
+      awayClubId, 
+      this.state.players, 
+      this.state.userPlayerId
+    );
+    this.state.matchHistory.push(result);
+    return result;
   }
 
   public getState(): GameState {
