@@ -6,6 +6,7 @@ import { MatchEngine } from './MatchEngine';
 import { TrainingEngine, TrainingSession } from './TrainingEngine';
 import { TransferEngine } from './TransferEngine';
 import { WorldEngine } from './WorldEngine';
+import { LegacyEngine } from './LegacyEngine';
 import { TransferOffer } from '../models/Transfer';
 
 export interface GameState {
@@ -26,7 +27,7 @@ export class GameEngine {
 
   constructor() {
     this.state = {
-      currentDate: new Date(2024, 7, 1), // Aug 1st, Season Start
+      currentDate: new Date(2024, 7, 1),
       userPlayerId: null,
       players: {},
       clubs: {},
@@ -40,7 +41,6 @@ export class GameEngine {
   }
 
   public initUserPlayer(player: Player) {
-    player.managerTrust = 50; // Initial trust
     this.state.players[player.id] = player;
     this.state.userPlayerId = player.id;
   }
@@ -52,7 +52,6 @@ export class GameEngine {
       league.teams.push(c.id);
     });
     this.state.leagueTables[league.id] = WorldEngine.initLeagueTable(league.id, clubs.map(c => c.id));
-    
     const leagueFixtures = WorldEngine.generateFixtures(league.id, clubs.map(c => c.id), this.state.currentDate);
     this.state.fixtures.push(...leagueFixtures);
   }
@@ -67,20 +66,9 @@ export class GameEngine {
 
   public advanceDay() {
     this.state.currentDate.setDate(this.state.currentDate.getDate() + 1);
-    
-    // Check for fixtures today
-    const todaysFixtures = this.state.fixtures.filter(f => 
-      !f.isPlayed && f.date.toDateString() === this.state.currentDate.toDateString()
-    );
-
-    todaysFixtures.forEach(fixture => {
-      this.runMatch(fixture);
-    });
-
-    // Weekly-ish updates
-    if (this.state.currentDate.getDay() === 1) { // Every Monday
-      this.processWeeklyUpdates();
-    }
+    const todaysFixtures = this.state.fixtures.filter(f => !f.isPlayed && f.date.toDateString() === this.state.currentDate.toDateString());
+    todaysFixtures.forEach(fixture => this.runMatch(fixture));
+    if (this.state.currentDate.getDay() === 1) this.processWeeklyUpdates();
   }
 
   private processWeeklyUpdates() {
@@ -88,8 +76,6 @@ export class GameEngine {
       TrainingEngine.processPassiveGrowth(player);
       player.marketValue = TransferEngine.calculateMarketValue(player);
       if (player.isUser) this.updateScoutingInterest(player);
-      
-      // Decay fatigue slightly
       player.fatigue = Math.max(0, player.fatigue - 15);
     });
     this.checkOffers();
@@ -117,22 +103,47 @@ export class GameEngine {
     });
   }
 
+  public acceptOffer(offerId: string) {
+    const offer = this.state.activeOffers.find(o => o.id === offerId);
+    if (!offer) return false;
+
+    const player = this.state.players[offer.playerId];
+    const oldClub = player.clubId || 'Free Agent';
+    player.clubId = offer.fromClubId;
+    player.wage = offer.terms.wage;
+    player.contractYearsRemaining = offer.terms.length;
+    
+    // Legacy: Record Transfer Milestone
+    if (player.isUser) {
+      const milestone = LegacyEngine.createTransferMilestone(player, oldClub, offer.fromClubId, offer.fee, this.state.currentDate);
+      player.milestones.push(milestone);
+    }
+
+    this.state.activeOffers = this.state.activeOffers.filter(o => o.id !== offerId);
+    return true;
+  }
+
   public runMatch(fixture: Fixture): MatchResult {
     const result = MatchEngine.simulate(fixture.homeClubId, fixture.awayClubId, this.state.players, this.state.userPlayerId);
-    
-    // Update Table
     const table = this.state.leagueTables[fixture.competitionId];
     if (table) WorldEngine.updateTable(table, result);
 
-    // Update player stats and Manager Trust
     Object.entries(result.playerStats).forEach(([pid, stats]) => {
       const p = this.state.players[pid];
       if (p) {
+        // Track Career Milestones for User
+        if (p.isUser) {
+          const newMilestones = LegacyEngine.checkMatchMilestones(p, stats, result);
+          p.milestones.push(...newMilestones);
+        }
+
+        // Update stats
         p.avgRating = ((p.avgRating * p.matchCount) + stats.rating) / (p.matchCount + 1);
         p.matchCount++;
+        p.totalGoals += stats.goals;
+        p.totalAssists += stats.assists;
         
         if (p.isUser) {
-          // Manager Trust Logic
           if (stats.rating > 7.5) p.managerTrust = Math.min(100, p.managerTrust + 5);
           if (stats.rating < 6.0) p.managerTrust = Math.max(0, p.managerTrust - 5);
         }
@@ -149,9 +160,7 @@ export class GameEngine {
     const user = this.getUserPlayer();
     if (user) {
       const result = TrainingEngine.train(user, session);
-      if (session !== 'Rest') {
-        user.managerTrust = Math.min(100, user.managerTrust + 1); // Reward hard work
-      }
+      if (session !== 'Rest') user.managerTrust = Math.min(100, user.managerTrust + 1);
       return result;
     }
     return { message: "No user player found.", growth: {} };
