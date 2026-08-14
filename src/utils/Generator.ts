@@ -52,6 +52,10 @@ export class Generator {
       morale: 70,
       avgRating: 0,
       matchCount: 0,
+      totalGoals: 0,
+      totalAssists: 0,
+      managerTrust: 50,
+      milestones: [],
       ...overrides
     };
   }
