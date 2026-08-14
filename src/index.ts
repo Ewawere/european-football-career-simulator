@@ -3,68 +3,75 @@ import { Generator } from './utils/Generator';
 import { calculateOverall } from './models/Player';
 import { NewsEngine } from './engine/NewsEngine';
 
-async function simulateCareerSeason() {
-  console.log("⚽ EUROPEAN FOOTBALL CAREER SIMULATOR");
+async function simulateTrainingWeek() {
+  console.log("⚽ EUROPEAN FOOTBALL CAREER SIMULATOR: TRAINING & DEVELOPMENT");
   console.log("================================================");
 
   const engine = new GameEngine();
 
-  // 1. Setup User
+  // 1. Setup User with a Development Plan
   const myPlayer = Generator.createPlayer({
     firstName: "Alex",
     lastName: "Hunter",
     nationality: "England",
-    position: "RW",
+    position: "LW",
     isUser: true,
-    clubId: "Arsenal"
+    clubId: "Arsenal",
+    developmentPlan: "InsideForward" // Focuses on Pace, Dribbling, Finishing
   });
   engine.initUserPlayer(myPlayer);
 
-  // 2. Setup Teammates & Opponents
-  const arsenalPlayers = Array.from({ length: 15 }, () => Generator.createPlayer({ clubId: "Arsenal" }));
-  const chelseaPlayers = Array.from({ length: 11 }, () => Generator.createPlayer({ clubId: "Chelsea" }));
-  
-  arsenalPlayers.forEach(p => engine.addPlayer(p));
-  chelseaPlayers.forEach(p => engine.addPlayer(p));
-
   console.log(`👤 Player: ${myPlayer.firstName} ${myPlayer.lastName}`);
-  console.log(`👕 Club: ${myPlayer.clubId} Academy`);
-  console.log(`📈 Overall: ${calculateOverall(myPlayer)} | Potential: ${myPlayer.potential}`);
-  console.log(`🧬 Appearance: ${myPlayer.appearance.hairStyle} ${myPlayer.appearance.hairColor} hair, ${myPlayer.appearance.height}cm`);
-  console.log("================================================\n");
+  console.log(`📈 Starting OVR: ${calculateOverall(myPlayer)}`);
+  console.log(`📋 Plan: ${myPlayer.developmentPlan}`);
+  console.log("------------------------------------------------\n");
 
-  // 3. Match Day
-  console.log("📅 MATCH DAY: Arsenal vs Chelsea (Youth League)");
-  console.log("------------------------------------------------");
+  // 2. Simulate Training Days
+  const schedule: any[] = ['Speed', 'Finishing', 'Rest', 'Speed', 'Finishing'];
   
-  const match = engine.runMatch("Arsenal", "Chelsea");
-
-  // Print Match Events
-  match.events.forEach(event => {
-    console.log(`[${event.minute}'] ${event.description}`);
+  console.log("📅 WEEKLY TRAINING SCHEDULE");
+  schedule.forEach((session, index) => {
+    const result = engine.trainUser(session);
+    console.log(`Day ${index + 1} [${session}]: ${result.message}`);
+    
+    // Log small attribute gains if any
+    const growthKeys = Object.keys(result.growth);
+    if (growthKeys.length > 0) {
+      const topGrowth = growthKeys[0];
+      console.log(`   📈 ${(result.growth as any)[topGrowth].toFixed(3)} increase in ${topGrowth}`);
+    }
   });
 
-  console.log("------------------------------------------------");
-  console.log(`🏟️ FINAL SCORE: Arsenal ${match.homeScore} - ${match.awayScore} Chelsea`);
+  console.log("\n------------------------------------------------");
+  console.log(`📊 END OF WEEK STATUS:`);
+  console.log(`⭐ New OVR: ${calculateOverall(myPlayer)}`);
+  console.log(`🔋 Fatigue: ${myPlayer.fatigue.toFixed(0)}%`);
+  console.log(`💪 Condition: ${myPlayer.condition.toFixed(0)}%`);
   
+  if (myPlayer.fatigue > 70) {
+    console.log("⚠️ Manager: 'You're looking red-lined, Alex. Dial it back or you'll get injured.'");
+  }
+
+  // 3. Match Involvement with Fatigue
+  console.log("\n================================================");
+  console.log("📅 MATCH DAY: Arsenal vs Spurs (Academy Derby)");
+  console.log("------------------------------------------------");
+  
+  // Create some opponents
+  for(let i=0; i<11; i++) engine.addPlayer(Generator.createPlayer({ clubId: "Spurs" }));
+  for(let i=0; i<11; i++) engine.addPlayer(Generator.createPlayer({ clubId: "Arsenal" }));
+
+  const match = engine.runMatch("Arsenal", "Spurs");
   const stats = match.playerStats[myPlayer.id];
-  console.log(`\n📊 YOUR STATS:`);
-  console.log(`⭐ Rating: ${stats.rating.toFixed(1)}`);
-  console.log(`⚽ Goals: ${stats.goals} | 🎯 Assists: ${stats.assists}`);
-  console.log(`👞 Shots: ${stats.shots} | 🔑 Key Passes: ${stats.keyPasses}`);
-  console.log(`🟨 Cards: ${stats.yellowCards} Yellow, ${stats.redCards} Red`);
-  console.log("================================================\n");
 
-  // 4. News & Media
-  console.log("📰 LATEST NEWS");
-  const report = NewsEngine.generateMatchReport(match, engine.getState().players, myPlayer.id);
-  const worldNews = NewsEngine.generateWorldNews(engine.getState().currentDate);
+  console.log(`🏟️ Final Score: Arsenal ${match.homeScore} - ${match.awayScore} Spurs`);
+  console.log(`⭐ Your Rating: ${stats.rating.toFixed(1)}`);
+  
+  if (myPlayer.fatigue > 60 && stats.rating < 6.5) {
+    console.log("📉 Analysis: Your high fatigue levels clearly impacted your performance today.");
+  }
 
-  console.log(`🔴 ${report.headline}`);
-  console.log(`   "${report.content}"`);
-  console.log(`\n🌐 ${worldNews.headline}`);
-  console.log(`   "${worldNews.content}"`);
   console.log("================================================\n");
 }
 
-simulateCareerSeason().catch(console.error);
+simulateTrainingWeek().catch(console.error);
