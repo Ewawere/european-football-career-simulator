@@ -1,61 +1,70 @@
 import { GameEngine } from './engine/GameEngine';
 import { Generator } from './utils/Generator';
 import { calculateOverall } from './models/Player';
+import { NewsEngine } from './engine/NewsEngine';
 
-async function startNewCareer() {
-  console.log("⚽ Welcome to European Football Career Simulator!");
-  console.log("------------------------------------------------");
+async function simulateCareerSeason() {
+  console.log("⚽ EUROPEAN FOOTBALL CAREER SIMULATOR");
+  console.log("================================================");
 
   const engine = new GameEngine();
 
-  // 1. Create User Player
+  // 1. Setup User
   const myPlayer = Generator.createPlayer({
     firstName: "Alex",
     lastName: "Hunter",
     nationality: "England",
     position: "RW",
-    isUser: true
+    isUser: true,
+    clubId: "Arsenal"
   });
-
   engine.initUserPlayer(myPlayer);
 
-  console.log(`👤 Player Created: ${myPlayer.firstName} ${myPlayer.lastName}`);
-  console.log(`📍 Position: ${myPlayer.position}`);
-  console.log(`📊 Starting Overall: ${calculateOverall(myPlayer)}`);
-  console.log(`🎯 Potential: ${myPlayer.potential}`);
+  // 2. Setup Teammates & Opponents
+  const arsenalPlayers = Array.from({ length: 15 }, () => Generator.createPlayer({ clubId: "Arsenal" }));
+  const chelseaPlayers = Array.from({ length: 11 }, () => Generator.createPlayer({ clubId: "Chelsea" }));
+  
+  arsenalPlayers.forEach(p => engine.addPlayer(p));
+  chelseaPlayers.forEach(p => engine.addPlayer(p));
+
+  console.log(`👤 Player: ${myPlayer.firstName} ${myPlayer.lastName}`);
+  console.log(`👕 Club: ${myPlayer.clubId} Academy`);
+  console.log(`📈 Overall: ${calculateOverall(myPlayer)} | Potential: ${myPlayer.potential}`);
+  console.log(`🧬 Appearance: ${myPlayer.appearance.hairStyle} ${myPlayer.appearance.hairColor} hair, ${myPlayer.appearance.height}cm`);
+  console.log("================================================\n");
+
+  // 3. Match Day
+  console.log("📅 MATCH DAY: Arsenal vs Chelsea (Youth League)");
   console.log("------------------------------------------------");
-
-  // 2. Start in Academy
-  console.log("🏠 You have joined the Arsenal Academy.");
-  myPlayer.clubId = "arsenal-fc"; // Placeholder ID
-
-  // 3. Simulate first few weeks
-  console.log("⏳ Training for 3 weeks...");
-  for (let i = 0; i < 3; i++) {
-    engine.advanceWeek();
-    console.log(`📅 Date: ${engine.getState().currentDate.toDateString()}`);
-  }
-
-  // 4. First Match Involvement
-  console.log("------------------------------------------------");
-  console.log("📋 Match Day: Arsenal U21 vs Chelsea U21");
-  console.log("📢 Manager: 'You're starting on the bench today. Be ready.'");
   
-  console.log("⏳ Match simulated until 65'...");
-  const matchResult = engine.simulateMatch("arsenal-fc", "chelsea-fc");
-  
-  console.log(`🔄 65' - SUBSTITUTION: You are coming on!`);
-  console.log(`📈 Performance Rating: ${matchResult.playerRating}`);
-  console.log(`🏟️ Final Score: ${matchResult.score}`);
-  
-  if (parseFloat(matchResult.playerRating) > 7.5) {
-    console.log("🌟 Manager: 'Excellent impact, kid. You've earned more minutes.'");
-  } else {
-    console.log("💪 Manager: 'Keep working hard on the training ground.'");
-  }
+  const match = engine.runMatch("Arsenal", "Chelsea");
+
+  // Print Match Events
+  match.events.forEach(event => {
+    console.log(`[${event.minute}'] ${event.description}`);
+  });
 
   console.log("------------------------------------------------");
-  console.log("🏆 End of Prologue. Your career has just begun.");
+  console.log(`🏟️ FINAL SCORE: Arsenal ${match.homeScore} - ${match.awayScore} Chelsea`);
+  
+  const stats = match.playerStats[myPlayer.id];
+  console.log(`\n📊 YOUR STATS:`);
+  console.log(`⭐ Rating: ${stats.rating.toFixed(1)}`);
+  console.log(`⚽ Goals: ${stats.goals} | 🎯 Assists: ${stats.assists}`);
+  console.log(`👞 Shots: ${stats.shots} | 🔑 Key Passes: ${stats.keyPasses}`);
+  console.log(`🟨 Cards: ${stats.yellowCards} Yellow, ${stats.redCards} Red`);
+  console.log("================================================\n");
+
+  // 4. News & Media
+  console.log("📰 LATEST NEWS");
+  const report = NewsEngine.generateMatchReport(match, engine.getState().players, myPlayer.id);
+  const worldNews = NewsEngine.generateWorldNews(engine.getState().currentDate);
+
+  console.log(`🔴 ${report.headline}`);
+  console.log(`   "${report.content}"`);
+  console.log(`\n🌐 ${worldNews.headline}`);
+  console.log(`   "${worldNews.content}"`);
+  console.log("================================================\n");
 }
 
-startNewCareer().catch(console.error);
+simulateCareerSeason().catch(console.error);
